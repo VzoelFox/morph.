@@ -1,0 +1,5 @@
+ambil "io"
+
+fungsi main() void
+    io.Write(io.Stdout, "Halo from NASM Morph!\n")
+akhir

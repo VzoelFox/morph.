@@ -1,0 +1,20 @@
+ambil "io"
+
+struktur Point
+    x int
+    y int
+akhir
+
+fungsi main() void
+    var p = Point{x: 10, y: 20}
+
+    var x = p.x
+    var y = p.y
+    var sum = x + y
+
+    jika sum == 30
+        io.Write(io.Stdout, "Struct access correct!\n")
+    lainnya
+        io.Write(io.Stdout, "Struct access WRONG!\n")
+    akhir
+akhir

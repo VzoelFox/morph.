@@ -1,0 +1,13 @@
+ambil "io"
+
+fungsi main() void
+    var a = 10
+    var b = 20
+    var c = a + b
+
+    jika c == 30
+        io.Write(io.Stdout, "Math is correct!\n")
+    lainnya
+        io.Write(io.Stdout, "Math is wrong!\n")
+    akhir
+akhir

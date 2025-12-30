@@ -1,0 +1,6 @@
+ambil "io"
+
+fungsi main() void
+    var pesan = "Hello Variable World from NASM!\n"
+    io.Write(io.Stdout, pesan)
+akhir
