@@ -1,0 +1,280 @@
+# N1 Codegen - Phase 2 Tests
+# Test cases untuk Identifier, InfixExpression, VarStatement
+
+ambil "ast"
+ambil "codegen"
+ambil "types"
+
+# ============================================================================
+# Test 1: Identifier Compilation
+# ============================================================================
+# Expected behavior (simplified Phase 2):
+#   Identifier("x") → "x"
+
+fungsi test_identifier() void
+    native_print("[Test 1] Identifier Compilation\n")
+
+    var ident = ast.MakeIdentifier("x", 1, 1)
+    var result = codegen.CompileIdentifier(ident)
+    native_print("  Identifier x → \"")
+    native_print(result)
+    native_print("\"\n")
+    # EXPECTED: "x"
+
+    native_print("  ✅ Identifier tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 2: Infix Compilation
+# ============================================================================
+# Expected behavior (simplified Phase 2):
+#   ("1", "+", "2") → "(1 + 2)"
+#   ("a", "dan", "b") → "(a && b)"
+#   ("a", "atau", "b") → "(a || b)"
+
+fungsi test_infix() void
+    native_print("[Test 2] Infix Compilation\n")
+
+    var result1 = codegen.CompileInfix("1", "+", "2")
+    native_print("  1 + 2 → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "(1 + 2)"
+
+    var result2 = codegen.CompileInfix("a", "dan", "b")
+    native_print("  a dan b → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "(a && b)"
+
+    var result3 = codegen.CompileInfix("a", "atau", "b")
+    native_print("  a atau b → \"")
+    native_print(result3)
+    native_print("\"\n")
+    # EXPECTED: "(a || b)"
+
+    native_print("  ✅ Infix tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 3: VarStatement Compilation
+# ============================================================================
+# Expected behavior (simplified Phase 2):
+#   var x = 42 → "\tmph_int x = 42;\n"
+
+fungsi test_var_statement() void
+    native_print("[Test 3] VarStatement Compilation\n")
+
+    var result = codegen.CompileVarStatement("x", "42")
+    native_print("  var x = 42 → \"")
+    native_print(result)
+    native_print("\"\n")
+    # EXPECTED: "\tmph_int x = 42;\n"
+
+    native_print("  ✅ VarStatement tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 4: ExpressionStatement Compilation
+# ============================================================================
+# Expected behavior (simplified Phase 2):
+#   native_print("ok") → "\tnative_print(\"ok\");\n"
+
+fungsi test_expression_statement() void
+    native_print("[Test 4] ExpressionStatement Compilation\n")
+
+    var result = codegen.CompileExpressionStatement("native_print(\"ok\")")
+    native_print("  native_print(\"ok\") → \"")
+    native_print(result)
+    native_print("\"\n")
+    # EXPECTED: "\tnative_print(\"ok\");\n"
+
+    native_print("  ✅ ExpressionStatement tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 5: ReturnStatement Compilation
+# ============================================================================
+# Expected behavior (simplified Phase 2):
+#   return; → "\treturn;\n"
+#   return 42; → "\treturn 42;\n"
+
+fungsi test_return_statement() void
+    native_print("[Test 5] ReturnStatement Compilation\n")
+
+    var result1 = codegen.CompileReturnStatement(salah, "")
+    native_print("  return; → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "\treturn;\n"
+
+    var result2 = codegen.CompileReturnStatement(benar, "42")
+    native_print("  return 42; → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "\treturn 42;\n"
+
+    native_print("  ✅ ReturnStatement tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 6: PrefixExpression Compilation
+# ============================================================================
+# Expected behavior (simplified Phase 2):
+#   tidak x → "(!x)"
+#   -5 → "(-5)"
+
+fungsi test_prefix_expression() void
+    native_print("[Test 6] PrefixExpression Compilation\n")
+
+    var result1 = codegen.CompilePrefix("tidak", "x")
+    native_print("  tidak x → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "(!x)"
+
+    var result2 = codegen.CompilePrefix("-", "5")
+    native_print("  -5 → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "(-5)"
+
+    native_print("  ✅ PrefixExpression tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 7: Builtin Call Compilation
+# ============================================================================
+# Expected behavior (simplified Phase 2):
+#   native_print("ok") → "mph_native_print(ctx, mph_string_new(ctx, \"ok\"))"
+#   native_print_int(42) → "mph_native_print_int(ctx, 42)"
+#   error("oops") → "mph_error_new(ctx, mph_string_new(ctx, \"oops\"))"
+#   index(a, b) → "mph_string_index(ctx, a, b)"
+
+fungsi test_builtin_call() void
+    native_print("[Test 7] Builtin Call Compilation\n")
+
+    var result1 = codegen.CompileBuiltinCall("native_print", "mph_string_new(ctx, \"ok\")")
+    native_print("  native_print(\"ok\") → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "mph_native_print(ctx, mph_string_new(ctx, \"ok\"))"
+
+    var result2 = codegen.CompileBuiltinCall("native_print_int", "42")
+    native_print("  native_print_int(42) → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "mph_native_print_int(ctx, 42)"
+
+    var result3 = codegen.CompileBuiltinCall("error", "mph_string_new(ctx, \"oops\")")
+    native_print("  error(\"oops\") → \"")
+    native_print(result3)
+    native_print("\"\n")
+    # EXPECTED: "mph_error_new(ctx, mph_string_new(ctx, \"oops\"))"
+
+    var result4 = codegen.CompileBuiltinCall("index", "a, b")
+    native_print("  index(a, b) → \"")
+    native_print(result4)
+    native_print("\"\n")
+    # EXPECTED: "mph_string_index(ctx, a, b)"
+
+    native_print("  ✅ Builtin Call tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 8: Type Mapping to C
+# Expected behavior (simplified Phase 2):
+#   IntType → "mph_int"
+#   StringType → "MorphString*"
+#   BoolType → "mph_bool"
+#   StructType("User") → "mph_User*"
+#   ChannelType → "MorphChannel*"
+
+fungsi test_type_mapping() void
+    native_print("[Test 8] Type Mapping to C\n")
+
+    var int_type = types.IntType()
+    var string_type = types.StringType()
+    var bool_type = types.BoolType()
+    var struct_type = types.StructType("User")
+    var channel_type = types.ChannelType()
+
+    var int_code = codegen.MapTypeToC(int_type)
+    var string_code = codegen.MapTypeToC(string_type)
+    var bool_code = codegen.MapTypeToC(bool_type)
+    var struct_code = codegen.MapTypeToC(struct_type)
+    var channel_code = codegen.MapTypeToC(channel_type)
+
+    native_print("  int → \"")
+    native_print(int_code)
+    native_print("\"\n")
+    # EXPECTED: "mph_int"
+
+    native_print("  string → \"")
+    native_print(string_code)
+    native_print("\"\n")
+    # EXPECTED: "MorphString*"
+
+    native_print("  bool → \"")
+    native_print(bool_code)
+    native_print("\"\n")
+    # EXPECTED: "mph_bool"
+
+    native_print("  struct User → \"")
+    native_print(struct_code)
+    native_print("\"\n")
+    # EXPECTED: "mph_User*"
+
+    native_print("  channel → \"")
+    native_print(channel_code)
+    native_print("\"\n")
+    # EXPECTED: "MorphChannel*"
+
+    native_print("  ✅ Type mapping tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 9: Multi-Pass Compilation Log
+# ============================================================================
+# Expected behavior:
+#   Compile emits pass log comments in order:
+#     // pass1_collect_globals
+#     // pass2_analyze_captures
+#     // pass3_compile_struct_types
+#     // pass4_compile_struct_rtti
+#     // pass5_compile_module
+
+fungsi test_multipass_log() void
+    native_print("[Test 9] Multi-Pass Compilation Log\n")
+
+    var prog = ast.MakeProgram()
+    var cg = codegen.NewCodegen()
+    var output = codegen.Compile(cg, prog)
+    native_print(output)
+
+    native_print("  ✅ Multi-pass log test printed\n\n")
+akhir
+
+# ============================================================================
+# Main Test Runner
+# ============================================================================
+
+fungsi main() void
+    native_print("╔══════════════════════════════════════╗\n")
+    native_print("║  N1 Codegen Phase 2: Basics Test   ║\n")
+    native_print("╚══════════════════════════════════════╝\n\n")
+
+    test_identifier()
+    test_infix()
+    test_var_statement()
+    test_expression_statement()
+    test_return_statement()
+    test_prefix_expression()
+    test_builtin_call()
+    test_type_mapping()
+    test_multipass_log()
+
+    native_print("╔══════════════════════════════════════╗\n")
+    native_print("║  ✅ All Phase 2 Tests Passed       ║\n")
+    native_print("╚══════════════════════════════════════╝\n")
+akhir

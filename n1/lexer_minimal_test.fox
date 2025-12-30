@@ -1,0 +1,103 @@
+# N1 Lexer - Minimal Working Version
+
+struktur Token
+    token_type int
+    literal string
+    line int
+    column int
+akhir
+
+struktur Lexer
+    input string
+    position int
+    read_position int
+    ch int
+    line int
+    column int
+akhir
+
+# Token constants
+var TOKEN_EOF = 0
+var TOKEN_IDENT = 1
+var TOKEN_INT = 2
+var TOKEN_PLUS = 3
+var TOKEN_MINUS = 4
+var TOKEN_ASSIGN = 5
+var TOKEN_LPAREN = 6
+var TOKEN_RPAREN = 7
+
+fungsi NewLexer(input string) Lexer
+    var l = Lexer{input: input, position: 0, read_position: 0, ch: 0, line: 1, column: 0}
+    lexer_read_char(l)
+    kembalikan l
+akhir
+
+fungsi lexer_read_char(l Lexer) void
+    jika l.read_position >= native_strlen(l.input)
+        l.ch = 0
+    lainnya
+        l.ch = native_char_at(l.input, l.read_position)
+    akhir
+    l.position = l.read_position
+    l.read_position = l.read_position + 1
+    l.column = l.column + 1
+akhir
+
+fungsi new_token(token_type int, literal string, line int, column int) Token
+    kembalikan Token{token_type: token_type, literal: literal, line: line, column: column}
+akhir
+
+fungsi NextToken(l Lexer) Token
+    var tok Token
+    
+    # Skip whitespace
+    selama l.ch == 32 atau l.ch == 9 atau l.ch == 10 atau l.ch == 13
+        jika l.ch == 10
+            l.line = l.line + 1
+            l.column = 0
+        akhir
+        lexer_read_char(l)
+    akhir
+    
+    var tok_line = l.line
+    var tok_col = l.column
+    
+    jika l.ch == 43  # '+'
+        tok = new_token(TOKEN_PLUS, "+", tok_line, tok_col)
+    lainnya jika l.ch == 45  # '-'
+        tok = new_token(TOKEN_MINUS, "-", tok_line, tok_col)
+    lainnya jika l.ch == 61  # '='
+        tok = new_token(TOKEN_ASSIGN, "=", tok_line, tok_col)
+    lainnya jika l.ch == 40  # '('
+        tok = new_token(TOKEN_LPAREN, "(", tok_line, tok_col)
+    lainnya jika l.ch == 41  # ')'
+        tok = new_token(TOKEN_RPAREN, ")", tok_line, tok_col)
+    lainnya jika l.ch == 0   # EOF
+        tok = new_token(TOKEN_EOF, "", tok_line, tok_col)
+    lainnya
+        # For now, treat everything else as identifier
+        tok = new_token(TOKEN_IDENT, "unknown", tok_line, tok_col)
+    akhir
+    
+    lexer_read_char(l)
+    kembalikan tok
+akhir
+
+fungsi main() void
+    var input = "x + y"
+    var l = NewLexer(input)
+    
+    var tok = NextToken(l)
+    var count = 0
+    selama tok.token_type != TOKEN_EOF dan count < 10
+        native_print("Token: ")
+        native_print_int(tok.token_type)
+        native_print(" ")
+        native_print(tok.literal)
+        native_print("\n")
+        tok = NextToken(l)
+        count = count + 1
+    akhir
+    
+    native_print("Lexer test complete\n")
+akhir

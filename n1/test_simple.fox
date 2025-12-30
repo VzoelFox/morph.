@@ -1,0 +1,3 @@
+fungsi main() void
+    native_print("Hello from N1 lexer\n")
+akhir

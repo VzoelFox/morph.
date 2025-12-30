@@ -1,0 +1,49 @@
+# N1 Parser - Standalone Version (N0 Compatible)
+# All dependencies inlined to work around N0's broken import system
+
+# ============================================================================
+# TOKEN CONSTANTS (from token.fox)
+# ============================================================================
+var TOKEN_ILLEGAL = 0
+var TOKEN_EOF = 1
+var TOKEN_IDENT = 2
+var TOKEN_INT = 3
+var TOKEN_FLOAT = 4
+var TOKEN_STRING = 5
+var TOKEN_CHAR = 6
+
+var TOKEN_ASSIGN = 7
+var TOKEN_PLUS = 8
+var TOKEN_MINUS = 9
+var TOKEN_BANG = 10
+var TOKEN_ASTERISK = 11
+var TOKEN_SLASH = 12
+var TOKEN_PERCENT = 13
+
+var TOKEN_EQ = 14
+var TOKEN_NOT_EQ = 15
+var TOKEN_LT = 16
+var TOKEN_GT = 17
+var TOKEN_LE = 18
+var TOKEN_GE = 19
+
+var TOKEN_COMMA = 28
+var TOKEN_SEMICOLON = 29
+var TOKEN_COLON = 30
+var TOKEN_LPAREN = 33
+var TOKEN_RPAREN = 34
+
+var TOKEN_FUNGSI = 39
+var TOKEN_KEMBALIKAN = 44
+var TOKEN_JIKA = 41
+var TOKEN_LAINNYA = 43
+var TOKEN_AKHIR = 48
+
+struktur Token
+    token_type int
+    literal string
+    line int
+    column int
+    has_leading_space bool
+akhir
+

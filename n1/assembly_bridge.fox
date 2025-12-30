@@ -1,0 +1,93 @@
+# N1 Assembly Bridge - Fox Interface to Assembly Components
+
+# External assembly functions
+native lexer_new(input string) int
+native lexer_next_token(lexer int) int
+native parser_new(lexer int) int
+native parser_parse_program(parser int) int
+native ast_create_node(node_type int, literal string, line int, column int) int
+
+# Token constants (matching assembly)
+var TOKEN_EOF = 0
+var TOKEN_IDENT = 1
+var TOKEN_INT = 2
+var TOKEN_PLUS = 3
+var TOKEN_MINUS = 4
+var TOKEN_ASSIGN = 5
+var TOKEN_LPAREN = 6
+var TOKEN_RPAREN = 7
+var TOKEN_LBRACE = 8
+var TOKEN_RBRACE = 9
+
+# AST Node constants
+var AST_PROGRAM = 0
+var AST_VAR_STATEMENT = 1
+var AST_FUNCTION_STATEMENT = 2
+var AST_IDENTIFIER = 3
+var AST_INTEGER_LITERAL = 4
+
+struktur Token
+    token_type int
+    literal string
+    line int
+    column int
+akhir
+
+struktur Lexer
+    handle int  # Assembly lexer handle
+akhir
+
+struktur Parser
+    handle int  # Assembly parser handle
+akhir
+
+struktur ASTNode
+    handle int  # Assembly node handle
+akhir
+
+# High-level Fox interface functions
+fungsi NewLexer(input string) Lexer
+    var handle = lexer_new(input)
+    kembalikan Lexer{handle: handle}
+akhir
+
+fungsi NextToken(l Lexer) Token
+    var token_handle = lexer_next_token(l.handle)
+    # For now, return a basic token - assembly integration needed
+    kembalikan Token{token_type: TOKEN_IDENT, literal: "test", line: 1, column: 1}
+akhir
+
+fungsi NewParser(l Lexer) Parser
+    var handle = parser_new(l.handle)
+    kembalikan Parser{handle: handle}
+akhir
+
+fungsi ParseProgram(p Parser) ASTNode
+    var node_handle = parser_parse_program(p.handle)
+    kembalikan ASTNode{handle: node_handle}
+akhir
+
+fungsi CreateNode(node_type int, literal string, line int, column int) ASTNode
+    var handle = ast_create_node(node_type, literal, line, column)
+    kembalikan ASTNode{handle: handle}
+akhir
+
+# Test function
+fungsi test_assembly_lexer() void
+    native_print("Testing Assembly Lexer\n")
+    
+    var input = "x + y"
+    var lexer = NewLexer(input)
+    
+    var token = NextToken(lexer)
+    native_print("First token created\n")
+    
+    var parser = NewParser(lexer)
+    var program = ParseProgram(parser)
+    
+    native_print("Assembly lexer/parser test complete\n")
+akhir
+
+fungsi main() void
+    test_assembly_lexer()
+akhir

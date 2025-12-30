@@ -1,0 +1,182 @@
+# N1 Minimal Parser - Proof of Concept (N0 Compatible)
+# Standalone parser untuk test konsep tanpa import dependencies
+
+# ============================================================================
+# TOKEN CONSTANTS (minimal subset)
+# ============================================================================
+var TOKEN_EOF = 1
+var TOKEN_IDENT = 2
+var TOKEN_INT = 3
+var TOKEN_PLUS = 8
+var TOKEN_MINUS = 9
+var TOKEN_ASTERISK = 11
+var TOKEN_SLASH = 12
+var TOKEN_LPAREN = 33
+var TOKEN_RPAREN = 34
+var TOKEN_SEMICOLON = 29
+
+# ============================================================================
+# AST NODE TYPES (minimal)
+# ============================================================================
+var NODE_PROGRAM = 0
+var NODE_EXPRESSION_STATEMENT = 4
+var NODE_INTEGER_LITERAL = 8
+var NODE_INFIX_EXPRESSION = 16
+
+# ============================================================================
+# Structures
+# ============================================================================
+struktur Token
+    token_type int
+    literal string
+    line int
+    column int
+akhir
+
+struktur IntegerLiteral
+    node_type int
+    value int
+akhir
+
+struktur InfixExpression
+    node_type int
+    operator string
+    left_value int
+    right_value int
+akhir
+
+struktur Parser
+    tokens_count int
+    current_pos int
+    current_token Token
+akhir
+
+# ============================================================================
+# Helper: Create token
+# ============================================================================
+fungsi make_token(ttype int, lit string) Token
+    kembalikan Token{token_type: ttype, literal: lit, line: 1, column: 1}
+akhir
+
+# ============================================================================
+# Helper: String to int conversion
+# ============================================================================
+fungsi string_to_int(s string) int
+    var length = panjang(s)
+    jika length == 0
+        kembalikan 0
+    akhir
+    
+    var result = 0
+    var i = 0
+    selama i < length
+        var ch = substring(s, i, i + 1)
+        jika ch == "0"
+            result = result * 10 + 0
+        lainnya
+            jika ch == "1"
+                result = result * 10 + 1
+            lainnya
+                jika ch == "2"
+                    result = result * 10 + 2
+                lainnya
+                    jika ch == "3"
+                        result = result * 10 + 3
+                    lainnya
+                        jika ch == "4"
+                            result = result * 10 + 4
+                        lainnya
+                            jika ch == "5"
+                                result = result * 10 + 5
+                            lainnya
+                                jika ch == "6"
+                                    result = result * 10 + 6
+                                lainnya
+                                    jika ch == "7"
+                                        result = result * 10 + 7
+                                    lainnya
+                                        jika ch == "8"
+                                            result = result * 10 + 8
+                                        lainnya
+                                            jika ch == "9"
+                                                result = result * 10 + 9
+                                            akhir
+                                        akhir
+                                    akhir
+                                akhir
+                            akhir
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+        i = i + 1
+    akhir
+    
+    kembalikan result
+akhir
+
+# ============================================================================
+# Parser Functions
+# ============================================================================
+fungsi new_parser() Parser
+    kembalikan Parser{
+        tokens_count: 0,
+        current_pos: 0,
+        current_token: make_token(TOKEN_EOF, "")
+    }
+akhir
+
+fungsi parse_integer_literal(p Parser, tok Token) IntegerLiteral
+    var value = string_to_int(tok.literal)
+    kembalikan IntegerLiteral{node_type: NODE_INTEGER_LITERAL, value: value}
+akhir
+
+fungsi parse_simple_expression(tok1 Token, op_tok Token, tok2 Token) InfixExpression
+    var left = string_to_int(tok1.literal)
+    var right = string_to_int(tok2.literal)
+    kembalikan InfixExpression{
+        node_type: NODE_INFIX_EXPRESSION,
+        operator: op_tok.literal,
+        left_value: left,
+        right_value: right
+    }
+akhir
+
+# ============================================================================
+# Test Function
+# ============================================================================
+fungsi test_parser() void
+    # Test 1: Parse integer literal
+    var tok1 = make_token(TOKEN_INT, "42")
+    var lit = parse_integer_literal(new_parser(), tok1)
+    
+    jika lit.value == 42
+        native_print("✓ Parse integer literal: 42\n")
+    lainnya
+        native_print("✗ Failed to parse integer\n")
+    akhir
+    
+    # Test 2: Parse simple infix expression (10 + 20)
+    var left_tok = make_token(TOKEN_INT, "10")
+    var op_tok = make_token(TOKEN_PLUS, "+")
+    var right_tok = make_token(TOKEN_INT, "20")
+    
+    var expr = parse_simple_expression(left_tok, op_tok, right_tok)
+    
+    jika expr.left_value == 10
+        jika expr.right_value == 20
+            jika expr.operator == "+"
+                native_print("✓ Parse infix expression: 10 + 20\n")
+            akhir
+        akhir
+    akhir
+    
+    native_print("\nMinimal Parser Test Complete!\n")
+akhir
+
+fungsi main() void
+    native_print("N1 Minimal Parser Test\n")
+    native_print("======================\n\n")
+    test_parser()
+akhir

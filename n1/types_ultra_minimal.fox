@@ -1,0 +1,16 @@
+# Ultra minimal types test
+var KIND_INT = 0
+
+struktur Type
+    kind int
+    name string
+akhir
+
+fungsi int_type() Type
+    kembalikan Type{kind: KIND_INT, name: "int"}
+akhir
+
+fungsi main() int
+    var t = int_type()
+    kembalikan 42
+akhir
