@@ -1,0 +1,7 @@
+ambil "io"
+
+var global_msg = "Hello from Global!"
+
+fungsi main() void
+    io.Write(io.Stdout, global_msg)
+akhir

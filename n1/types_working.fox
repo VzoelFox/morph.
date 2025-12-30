@@ -1,0 +1,102 @@
+# N1 Type System - Working Minimal Version
+# Simplified to identify compilation issues
+
+# ============================================================================
+# TypeKind Constants
+# ============================================================================
+var KIND_INT = 0
+var KIND_FLOAT = 1
+var KIND_STRING = 2
+var KIND_BOOL = 3
+var KIND_VOID = 4
+var KIND_ERROR = 13
+
+# ============================================================================
+# Type Structure
+# ============================================================================
+struktur Type
+    kind int
+    name string
+akhir
+
+# ============================================================================
+# TypeResult Structure (for error handling)
+# ============================================================================
+struktur TypeResult
+    result_type Type
+    has_error int
+    error_message string
+akhir
+
+# ============================================================================
+# Type Constructors
+# ============================================================================
+fungsi make_type(k int, n string) Type
+    kembalikan Type{kind: k, name: n}
+akhir
+
+fungsi int_type() Type
+    kembalikan Type{kind: KIND_INT, name: "int"}
+akhir
+
+fungsi string_type() Type
+    kembalikan Type{kind: KIND_STRING, name: "string"}
+akhir
+
+fungsi bool_type() Type
+    kembalikan Type{kind: KIND_BOOL, name: "bool"}
+akhir
+
+fungsi void_type() Type
+    kembalikan Type{kind: KIND_VOID, name: "void"}
+akhir
+
+fungsi error_type() Type
+    kembalikan Type{kind: KIND_ERROR, name: "error"}
+akhir
+
+# ============================================================================
+# TypeResult Helpers
+# ============================================================================
+fungsi make_type_result(t Type) TypeResult
+    var result = TypeResult{
+        result_type: t,
+        has_error: 0,
+        error_message: ""
+    }
+    kembalikan result
+akhir
+
+fungsi make_type_error(msg string) TypeResult
+    var result = TypeResult{
+        result_type: error_type(),
+        has_error: 1,
+        error_message: msg
+    }
+    kembalikan result
+akhir
+
+# ============================================================================
+# Type Equality Check
+# ============================================================================
+fungsi types_equal(a Type, b Type) int
+    jika a.kind == b.kind
+        kembalikan 1
+    akhir
+    kembalikan 0
+akhir
+
+# ============================================================================
+# Main Test Function
+# ============================================================================
+fungsi main() int
+    var t1 = int_type()
+    var t2 = string_type()
+    var equal = types_equal(t1, t2)
+
+    jika equal == 0
+        kembalikan 42  # Success - they are different!
+    akhir
+
+    kembalikan 1
+akhir

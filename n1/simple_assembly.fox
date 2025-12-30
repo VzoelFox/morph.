@@ -1,0 +1,78 @@
+# N1 Simple Assembly Workaround
+# Minimal assembly functions to bypass N0 limitations
+
+struktur SimpleToken
+    token_type int
+    literal_ptr int  # Pointer to string
+    line int
+    column int
+akhir
+
+struktur SimpleLexer
+    input_ptr int    # Pointer to input string
+    position int
+    current_char int
+    line int
+    column int
+akhir
+
+# Token type constants
+var SIMPLE_TOKEN_EOF = 0
+var SIMPLE_TOKEN_IDENT = 1
+var SIMPLE_TOKEN_PLUS = 2
+var SIMPLE_TOKEN_MINUS = 3
+var SIMPLE_TOKEN_ASSIGN = 4
+
+# Assembly helper functions (will be linked)
+native simple_lexer_create() int
+native simple_lexer_set_input(lexer_ptr int, input_ptr int) void
+native simple_lexer_next_token(lexer_ptr int) int
+native simple_token_get_type(token_ptr int) int
+native simple_token_get_literal(token_ptr int) int
+
+fungsi create_simple_lexer(input string) SimpleLexer
+    var lexer_ptr = simple_lexer_create()
+    var input_ptr = native_string_ptr(input)
+    simple_lexer_set_input(lexer_ptr, input_ptr)
+    
+    kembalikan SimpleLexer{
+        input_ptr: input_ptr,
+        position: 0,
+        current_char: 0,
+        line: 1,
+        column: 1
+    }
+akhir
+
+fungsi get_next_token(l SimpleLexer) SimpleToken
+    var token_ptr = simple_lexer_next_token(l.input_ptr)
+    var token_type = simple_token_get_type(token_ptr)
+    var literal_ptr = simple_token_get_literal(token_ptr)
+    
+    kembalikan SimpleToken{
+        token_type: token_type,
+        literal_ptr: literal_ptr,
+        line: l.line,
+        column: l.column
+    }
+akhir
+
+fungsi test_simple_assembly() void
+    native_print("Testing Simple Assembly Lexer\n")
+    
+    var input = "x + y"
+    var lexer = create_simple_lexer(input)
+    
+    native_print("Created lexer\n")
+    
+    var token = get_next_token(lexer)
+    native_print("Got token type: ")
+    native_print_int(token.token_type)
+    native_print("\n")
+    
+    native_print("Simple assembly test complete\n")
+akhir
+
+fungsi main() void
+    test_simple_assembly()
+akhir

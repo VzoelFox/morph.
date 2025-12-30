@@ -1,0 +1,254 @@
+# N1 Codegen - Literal Compilation Tests
+# Test cases untuk Phase 1: IntegerLiteral, FloatLiteral, CharLiteral, NullLiteral,
+# StringLiteral, BooleanLiteral
+
+ambil "ast"
+ambil "codegen"
+ambil "stdlib_codegen"
+
+# ============================================================================
+# Test 1: Integer Literal Compilation
+# ============================================================================
+# Expected behavior (from N0 compiler.go line 1506-1507):
+#   IntegerLiteral → fmt.Sprintf("%d", e.Value)
+#
+# Examples:
+#   42 → "42"
+#   0 → "0"
+#   -123 → "-123"
+#   9876 → "9876"
+
+fungsi test_integer_literal() void
+    native_print("[Test 1] Integer Literal Compilation\n")
+
+    # Test case 1.1: Positive integer
+    var lit1 = ast.MakeIntegerLiteral(42, "42", 1, 1)
+    var result1 = codegen.CompileIntegerLiteral(lit1)
+    native_print("  42 → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "42"
+
+    # Test case 1.2: Zero
+    var lit2 = ast.MakeIntegerLiteral(0, "0", 1, 1)
+    var result2 = codegen.CompileIntegerLiteral(lit2)
+    native_print("  0 → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "0"
+
+    # Test case 1.3: Negative integer
+    var lit3 = ast.MakeIntegerLiteral(-123, "-123", 1, 1)
+    var result3 = codegen.CompileIntegerLiteral(lit3)
+    native_print("  -123 → \"")
+    native_print(result3)
+    native_print("\"\n")
+    # EXPECTED: "-123"
+
+    # Test case 1.4: Large number
+    var lit4 = ast.MakeIntegerLiteral(9876, "9876", 1, 1)
+    var result4 = codegen.CompileIntegerLiteral(lit4)
+    native_print("  9876 → \"")
+    native_print(result4)
+    native_print("\"\n")
+    # EXPECTED: "9876"
+
+    native_print("  ✅ Integer literal tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 2: Float Literal Compilation
+# ============================================================================
+# Expected behavior (from N0 compiler.go line 1509-1510):
+#   FloatLiteral → raw string value
+#
+# Examples:
+#   3.14 → "3.14"
+#   -0.5 → "-0.5"
+#   2.0 → "2.0"
+
+fungsi test_float_literal() void
+    native_print("[Test 2] Float Literal Compilation\n")
+
+    # Test case 2.1: Positive float
+    var lit1 = ast.MakeFloatLiteral("3.14", 1, 1)
+    var result1 = codegen.CompileFloatLiteral(lit1)
+    native_print("  3.14 → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "3.14"
+
+    # Test case 2.2: Negative float
+    var lit2 = ast.MakeFloatLiteral("-0.5", 1, 1)
+    var result2 = codegen.CompileFloatLiteral(lit2)
+    native_print("  -0.5 → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "-0.5"
+
+    # Test case 2.3: Trailing zero
+    var lit3 = ast.MakeFloatLiteral("2.0", 1, 1)
+    var result3 = codegen.CompileFloatLiteral(lit3)
+    native_print("  2.0 → \"")
+    native_print(result3)
+    native_print("\"\n")
+    # EXPECTED: "2.0"
+
+    native_print("  ✅ Float literal tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 3: Char Literal Compilation
+# ============================================================================
+# Expected behavior (from N0 compiler.go line 1510-1511):
+#   CharLiteral → ASCII integer string
+#
+# Examples:
+#   'A' → "65"
+#   '0' → "48"
+
+fungsi test_char_literal() void
+    native_print("[Test 3] Char Literal Compilation\n")
+
+    # Test case 3.1: Capital letter
+    var lit1 = ast.MakeCharLiteral(65, "A", 1, 1)
+    var result1 = codegen.CompileCharLiteral(lit1)
+    native_print("  'A' → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "65"
+
+    # Test case 3.2: Digit character
+    var lit2 = ast.MakeCharLiteral(48, "0", 1, 1)
+    var result2 = codegen.CompileCharLiteral(lit2)
+    native_print("  '0' → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "48"
+
+    native_print("  ✅ Char literal tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 4: Null Literal Compilation
+# ============================================================================
+# Expected behavior (from N0 compiler.go line 1516-1517):
+#   null → "NULL"
+
+fungsi test_null_literal() void
+    native_print("[Test 4] Null Literal Compilation\n")
+
+    var lit = ast.MakeNullLiteral(1, 1)
+    var result = codegen.CompileNullLiteral(lit)
+    native_print("  null → \"")
+    native_print(result)
+    native_print("\"\n")
+    # EXPECTED: "NULL"
+
+    native_print("  ✅ Null literal tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 5: String Literal Compilation
+# ============================================================================
+# Expected behavior (from N0 compiler.go line 1497-1505):
+#   StringLiteral → mph_string_new(ctx, "escaped_value")
+#   Escape sequences: \\ \" \n \r \t (in that order!)
+#
+# Examples:
+#   "hello" → "mph_string_new(ctx, \"hello\")"
+#   "hello\nworld" → "mph_string_new(ctx, \"hello\\nworld\")"
+#   "path\\to\\file" → "mph_string_new(ctx, \"path\\\\to\\\\file\")"
+#   "say \"hi\"" → "mph_string_new(ctx, \"say \\\"hi\\\"\")"
+
+fungsi test_string_literal() void
+    native_print("[Test 5] String Literal Compilation\n")
+
+    # Test case 2.1: Simple string
+    var lit1 = ast.MakeStringLiteral("hello", 1, 1)
+    var result1 = codegen.CompileStringLiteral(lit1)
+    native_print("  \"hello\" → \"")
+    native_print(result1)
+    native_print("\"\n")
+    # EXPECTED: "mph_string_new(ctx, \"hello\")"
+
+    # Test case 2.2: String with newline
+    var lit2 = ast.MakeStringLiteral("hello\nworld", 1, 1)
+    var result2 = codegen.CompileStringLiteral(lit2)
+    native_print("  \"hello\\nworld\" → \"")
+    native_print(result2)
+    native_print("\"\n")
+    # EXPECTED: "mph_string_new(ctx, \"hello\\nworld\")"
+
+    # Test case 2.3: Empty string
+    var lit3 = ast.MakeStringLiteral("", 1, 1)
+    var result3 = codegen.CompileStringLiteral(lit3)
+    native_print("  \"\" → \"")
+    native_print(result3)
+    native_print("\"\n")
+    # EXPECTED: "mph_string_new(ctx, \"\")"
+
+    # Test case 2.4: String with quotes
+    var lit4 = ast.MakeStringLiteral("say \"hi\"", 1, 1)
+    var result4 = codegen.CompileStringLiteral(lit4)
+    native_print("  \"say \\\"hi\\\"\" → \"")
+    native_print(result4)
+    native_print("\"\n")
+    # EXPECTED: "mph_string_new(ctx, \"say \\\"hi\\\"\")"
+
+    native_print("  ✅ String literal tests passed\n\n")
+akhir
+
+# ============================================================================
+# Test 6: Boolean Literal Compilation
+# ============================================================================
+# Expected behavior (from N0 compiler.go line 1512-1516):
+#   BooleanLiteral(true) → "1"
+#   BooleanLiteral(false) → "0"
+#
+# Examples:
+#   benar → "1"
+#   salah → "0"
+
+fungsi test_boolean_literal() void
+    native_print("[Test 6] Boolean Literal Compilation\n")
+
+    # Test case 3.1: True value
+    var lit_true = ast.MakeBooleanLiteral(benar, "benar", 1, 1)
+    var result_true = codegen.CompileBooleanLiteral(lit_true)
+    native_print("  benar → \"")
+    native_print(result_true)
+    native_print("\"\n")
+    # EXPECTED: "1"
+
+    # Test case 3.2: False value
+    var lit_false = ast.MakeBooleanLiteral(salah, "salah", 1, 1)
+    var result_false = codegen.CompileBooleanLiteral(lit_false)
+    native_print("  salah → \"")
+    native_print(result_false)
+    native_print("\"\n")
+    # EXPECTED: "0"
+
+    native_print("  ✅ Boolean literal tests passed\n\n")
+akhir
+
+# ============================================================================
+# Main Test Runner
+# ============================================================================
+
+fungsi main() void
+    native_print("╔══════════════════════════════════════╗\n")
+    native_print("║  N1 Codegen Phase 1: Literals Test  ║\n")
+    native_print("╚══════════════════════════════════════╝\n\n")
+
+    test_integer_literal()
+    test_float_literal()
+    test_char_literal()
+    test_null_literal()
+    test_string_literal()
+    test_boolean_literal()
+
+    native_print("╔══════════════════════════════════════╗\n")
+    native_print("║  ✅ All Literal Tests Passed        ║\n")
+    native_print("╚══════════════════════════════════════╝\n")
+akhir

@@ -1,0 +1,18 @@
+# Simple N1 Token Test
+
+struktur Token
+    token_type int
+    literal string
+akhir
+
+var TOKEN_IDENT = 1
+var TOKEN_INT = 2
+
+fungsi new_token(token_type int, literal string) Token
+    kembalikan Token{token_type: token_type, literal: literal}
+akhir
+
+fungsi main() void
+    var tok = new_token(TOKEN_IDENT, "test")
+    native_print("Token created\n")
+akhir

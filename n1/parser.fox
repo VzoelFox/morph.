@@ -1,0 +1,320 @@
+# N1 Parser Implementation (Simplified)
+# Port dari N0 pkg/parser/parser.go
+
+# Import dependencies
+ambil "lexer"
+ambil "token"
+ambil "ast"
+
+# ============================================================================
+# Precedence Constants
+# ============================================================================
+var PRECEDENCE_LOWEST = 1
+var PRECEDENCE_EQUALS = 2      # ==
+var PRECEDENCE_LESSGREATER = 3 # > or <
+var PRECEDENCE_SUM = 4         # +
+var PRECEDENCE_PRODUCT = 5     # *
+var PRECEDENCE_PREFIX = 6      # -X or !X
+var PRECEDENCE_CALL = 7        # myFunction(X)
+
+# ============================================================================
+# Parser Structure
+# ============================================================================
+struktur Parser
+    lexer lexer.Lexer
+    current_token token.Token
+    peek_token token.Token
+    errors_count int
+    # Note: In a real implementation, we'd have an array of error messages
+akhir
+
+# ============================================================================
+# Parser Constructor
+# ============================================================================
+fungsi NewParser(l lexer.Lexer) Parser
+    var p = Parser{lexer: l, errors_count: 0, current_token: token.MakeToken(0, "", 0, 0), peek_token: token.MakeToken(0, "", 0, 0)}
+
+    # Read two tokens, so current_token and peek_token are both set
+    ParserNextToken(p)
+    ParserNextToken(p)
+
+    kembalikan p
+akhir
+
+# ============================================================================
+# Token Management
+# ============================================================================
+fungsi ParserNextToken(p Parser) void
+    p.current_token = p.peek_token
+    p.peek_token = lexer.LexerNextToken(p.lexer)
+akhir
+
+fungsi ParserCurrentTokenIs(p Parser, token_type int) bool
+    kembalikan p.current_token.token_type == token_type
+akhir
+
+fungsi ParserPeekTokenIs(p Parser, token_type int) bool
+    kembalikan p.peek_token.token_type == token_type
+akhir
+
+fungsi ParserExpectPeek(p Parser, token_type int) bool
+    jika ParserPeekTokenIs(p, token_type) == benar
+        ParserNextToken(p)
+        kembalikan benar
+    lainnya
+        # Add error (simplified)
+        p.errors_count = p.errors_count + 1
+        kembalikan salah
+    akhir
+akhir
+
+# ============================================================================
+# Precedence Helpers
+# ============================================================================
+fungsi GetTokenPrecedence(token_type int) int
+    jika token_type == token.TOKEN_EQ
+        kembalikan PRECEDENCE_EQUALS
+    akhir
+    jika token_type == token.TOKEN_NOT_EQ
+        kembalikan PRECEDENCE_EQUALS
+    akhir
+    jika token_type == token.TOKEN_LT
+        kembalikan PRECEDENCE_LESSGREATER
+    akhir
+    jika token_type == token.TOKEN_GT
+        kembalikan PRECEDENCE_LESSGREATER
+    akhir
+    jika token_type == token.TOKEN_LE
+        kembalikan PRECEDENCE_LESSGREATER
+    akhir
+    jika token_type == token.TOKEN_GE
+        kembalikan PRECEDENCE_LESSGREATER
+    akhir
+    jika token_type == token.TOKEN_PLUS
+        kembalikan PRECEDENCE_SUM
+    akhir
+    jika token_type == token.TOKEN_MINUS
+        kembalikan PRECEDENCE_SUM
+    akhir
+    jika token_type == token.TOKEN_SLASH
+        kembalikan PRECEDENCE_PRODUCT
+    akhir
+    jika token_type == token.TOKEN_ASTERISK
+        kembalikan PRECEDENCE_PRODUCT
+    akhir
+    jika token_type == token.TOKEN_PERCENT
+        kembalikan PRECEDENCE_PRODUCT
+    akhir
+    jika token_type == token.TOKEN_LPAREN
+        kembalikan PRECEDENCE_CALL
+    akhir
+    kembalikan PRECEDENCE_LOWEST
+akhir
+
+fungsi ParserPeekPrecedence(p Parser) int
+    kembalikan GetTokenPrecedence(p.peek_token.token_type)
+akhir
+
+fungsi ParserCurrentPrecedence(p Parser) int
+    kembalikan GetTokenPrecedence(p.current_token.token_type)
+akhir
+
+# ============================================================================
+# Expression Parsing
+# ============================================================================
+fungsi ParseIdentifier(p Parser) ast.Identifier
+    kembalikan ast.MakeIdentifier(p.current_token.literal, p.current_token.line, p.current_token.column)
+akhir
+
+fungsi ParseIntegerLiteral(p Parser) ast.IntegerLiteral
+    # Simplified integer parsing - convert string to int
+    var value = StringToInt(p.current_token.literal)
+    kembalikan ast.MakeIntegerLiteral(value, p.current_token.literal, p.current_token.line, p.current_token.column)
+akhir
+
+fungsi ParseStringLiteral(p Parser) ast.StringLiteral
+    kembalikan ast.MakeStringLiteral(p.current_token.literal, p.current_token.line, p.current_token.column)
+akhir
+
+fungsi ParseBooleanLiteral(p Parser) ast.BooleanLiteral
+    var value = ParserCurrentTokenIs(p, token.TOKEN_BENAR)
+    kembalikan ast.MakeBooleanLiteral(value, p.current_token.literal, p.current_token.line, p.current_token.column)
+akhir
+
+fungsi ParseFloatLiteral(p Parser) ast.FloatLiteral
+    kembalikan ast.MakeFloatLiteral(p.current_token.literal, p.current_token.line, p.current_token.column)
+akhir
+
+fungsi ParseCharLiteral(p Parser) ast.CharLiteral
+    var value = lexer.CharToAscii(p.current_token.literal)
+    kembalikan ast.MakeCharLiteral(value, p.current_token.literal, p.current_token.line, p.current_token.column)
+akhir
+
+fungsi ParseNullLiteral(p Parser) ast.NullLiteral
+    kembalikan ast.MakeNullLiteral(p.current_token.line, p.current_token.column)
+akhir
+
+# ============================================================================
+# Simplified Expression Parsing
+# ============================================================================
+fungsi ParsePrefixExpression(p Parser) ast.PrefixExpression
+    var expr = ast.MakePrefixExpression(p.current_token.literal, p.current_token.line, p.current_token.column)
+
+    ParserNextToken(p)
+
+    # Note: In a real implementation, we'd parse the right expression here
+    # For now, we just create the prefix expression structure
+
+    kembalikan expr
+akhir
+
+# ============================================================================
+# Statement Parsing
+# ============================================================================
+fungsi ParseVarStatement(p Parser) ast.VarStatement
+    var line = p.current_token.line
+    var column = p.current_token.column
+
+    jika ParserExpectPeek(p, token.TOKEN_IDENT) == salah
+        # Error: expected identifier
+        kembalikan ast.MakeVarStatement("-", "-", line, column)
+    akhir
+
+    var name = p.current_token.literal
+
+    # Check for optional type annotation
+    var type_str = "-"
+    jika ParserPeekTokenIs(p, token.TOKEN_COLON) == benar
+        ParserNextToken(p)  # consume ':'
+        jika ParserExpectPeek(p, token.TOKEN_IDENT) == benar
+            type_str = p.current_token.literal
+        akhir
+    akhir
+
+    var stmt = ast.MakeVarStatement(name, type_str, line, column)
+
+    # Check for assignment
+    jika ParserPeekTokenIs(p, token.TOKEN_ASSIGN) == benar
+        ParserNextToken(p)  # consume '='
+        ParserNextToken(p)  # move to value
+        stmt.has_value = benar
+        stmt.value_literal = p.current_token.literal
+        stmt.value_token_type = p.current_token.token_type
+
+        # Note: In a real implementation, we'd parse the expression here
+    akhir
+
+    # Skip to semicolon or end of statement
+    var should_continue = benar
+    selama should_continue == benar
+        jika ParserCurrentTokenIs(p, token.TOKEN_SEMICOLON) == benar
+            should_continue = salah
+        lainnya
+            jika ParserCurrentTokenIs(p, token.TOKEN_EOF) == benar
+                should_continue = salah
+            lainnya
+                ParserNextToken(p)
+            akhir
+        akhir
+    akhir
+
+    kembalikan stmt
+akhir
+
+# ============================================================================
+# Program Parsing
+# ============================================================================
+fungsi ParseProgram(p Parser) ast.Program
+    var program = ast.MakeProgram()
+
+    selama ParserCurrentTokenIs(p, token.TOKEN_EOF) == salah
+        jika ParserCurrentTokenIs(p, token.TOKEN_VAR) == benar
+            var stmt = ParseVarStatement(p)
+            program.statements_count = program.statements_count + 1
+            program.var_statements_count = program.var_statements_count + 1
+            program.var_statement = stmt
+            program.has_var_statement = benar
+
+            # Print parsed statement for debugging
+            native_print("Parsed VarStatement: ")
+            native_print(stmt.name)
+            jika stmt.value_type != "-"
+                native_print(" : ")
+                native_print(stmt.value_type)
+            akhir
+            jika stmt.has_value == benar
+                native_print(" = <expression>")
+            akhir
+            native_print("\n")
+        akhir
+
+        ParserNextToken(p)
+    akhir
+
+    kembalikan program
+akhir
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
+fungsi StringToInt(s string) int
+    var length = panjang(s)
+    jika length == 0
+        kembalikan 0
+    akhir
+
+    var i = 0
+    var sign = 1
+    jika substring(s, 0, 1) == "-"
+        sign = -1
+        i = 1
+    akhir
+
+    var result = 0
+    selama i < length
+        var ch = substring(s, i, i + 1)
+        jika ch == "0"
+            result = result * 10 + 0
+        atau_jika ch == "1"
+            result = result * 10 + 1
+        atau_jika ch == "2"
+            result = result * 10 + 2
+        atau_jika ch == "3"
+            result = result * 10 + 3
+        atau_jika ch == "4"
+            result = result * 10 + 4
+        atau_jika ch == "5"
+            result = result * 10 + 5
+        atau_jika ch == "6"
+            result = result * 10 + 6
+        atau_jika ch == "7"
+            result = result * 10 + 7
+        atau_jika ch == "8"
+            result = result * 10 + 8
+        atau_jika ch == "9"
+            result = result * 10 + 9
+        lainnya
+            kembalikan 0
+        akhir
+        i = i + 1
+    akhir
+
+    kembalikan result * sign
+akhir
+
+# ============================================================================
+# Parser Error Reporting
+# ============================================================================
+fungsi ParserHasErrors(p Parser) bool
+    kembalikan p.errors_count > 0
+akhir
+
+fungsi ParserPrintErrors(p Parser) void
+    jika p.errors_count > 0
+        native_print("Parser has ")
+        native_print_int(p.errors_count)
+        native_print(" error(s)\n")
+    lainnya
+        native_print("No parser errors\n")
+    akhir
+akhir

@@ -1,0 +1,216 @@
+# N1 Token System - Complete Port from N0
+
+struktur Token
+    token_type int
+    literal string
+    line int
+    column int
+    has_leading_space bool
+akhir
+
+# Token Type Constants
+var TOKEN_ILLEGAL = 0
+var TOKEN_EOF = 1
+
+# Identifiers + literals
+var TOKEN_IDENT = 2
+var TOKEN_INT = 3
+var TOKEN_FLOAT = 4
+var TOKEN_STRING = 5
+var TOKEN_CHAR = 6
+
+# Operators
+var TOKEN_ASSIGN = 7
+var TOKEN_PLUS = 8
+var TOKEN_MINUS = 9
+var TOKEN_BANG = 10
+var TOKEN_ASTERISK = 11
+var TOKEN_SLASH = 12
+var TOKEN_PERCENT = 13
+
+var TOKEN_LT = 14
+var TOKEN_GT = 15
+var TOKEN_EQ = 16
+var TOKEN_NOT_EQ = 17
+var TOKEN_LE = 18
+var TOKEN_GE = 19
+
+# Bitwise
+var TOKEN_BIT_AND = 20
+var TOKEN_BIT_OR = 21
+var TOKEN_BIT_XOR = 22
+var TOKEN_BIT_NOT = 23
+var TOKEN_LSHIFT = 24
+var TOKEN_RSHIFT = 25
+
+# Logical
+var TOKEN_AND = 26
+var TOKEN_OR = 27
+
+# Delimiters
+var TOKEN_COMMA = 28
+var TOKEN_SEMICOLON = 29
+var TOKEN_COLON = 30
+var TOKEN_DOT = 31
+
+var TOKEN_LPAREN = 32
+var TOKEN_RPAREN = 33
+var TOKEN_LBRACE = 34
+var TOKEN_RBRACE = 35
+var TOKEN_LBRACKET = 36
+var TOKEN_RBRACKET = 37
+
+# Keywords
+var TOKEN_FUNGSI = 38
+var TOKEN_NATIVE = 39
+var TOKEN_JIKA = 40
+var TOKEN_ATAU_JIKA = 41
+var TOKEN_LAINNYA = 42
+var TOKEN_KEMBALIKAN = 43
+var TOKEN_BENAR = 44
+var TOKEN_SALAH = 45
+var TOKEN_KOSONG = 46
+var TOKEN_AKHIR = 47
+var TOKEN_SELAMA = 48
+var TOKEN_DAN = 49
+var TOKEN_ATAU = 50
+var TOKEN_AMBIL = 51
+var TOKEN_DARI = 52
+var TOKEN_BERHENTI = 53
+var TOKEN_LANJUT = 54
+var TOKEN_STRUKTUR = 55
+var TOKEN_INTERFACE = 56
+var TOKEN_VAR = 57
+var TOKEN_TETAPAN = 58
+var TOKEN_MAP = 59
+var TOKEN_PILIH = 60
+var TOKEN_KASUS = 61
+
+fungsi new_token(token_type int, literal string, line int, column int) Token
+    kembalikan Token{
+        token_type: token_type,
+        literal: literal,
+        line: line,
+        column: column,
+        has_leading_space: salah
+    }
+akhir
+
+fungsi lookup_ident(ident string) int
+    # NOTE: N0 parser has BUG with long lainnya jika chains (>5 items)
+    # WORKAROUND: Use nested if-else instead
+    jika ident == "fungsi"
+        kembalikan TOKEN_FUNGSI
+    lainnya
+        jika ident == "native"
+            kembalikan TOKEN_NATIVE
+        lainnya
+            jika ident == "jika"
+                kembalikan TOKEN_JIKA
+            lainnya
+                jika ident == "atau_jika"
+                    kembalikan TOKEN_ATAU_JIKA
+                lainnya
+                    jika ident == "lainnya"
+                        kembalikan TOKEN_LAINNYA
+                    lainnya
+                        jika ident == "kembalikan"
+                            kembalikan TOKEN_KEMBALIKAN
+                        lainnya
+                            jika ident == "benar"
+                                kembalikan TOKEN_BENAR
+                            lainnya
+                                jika ident == "salah"
+                                    kembalikan TOKEN_SALAH
+                                lainnya
+                                    jika ident == "kosong"
+                                        kembalikan TOKEN_KOSONG
+                                    lainnya
+                                        jika ident == "akhir"
+                                            kembalikan TOKEN_AKHIR
+                                        lainnya
+                                            jika ident == "selama"
+                                                kembalikan TOKEN_SELAMA
+                                            lainnya
+                                                jika ident == "dan"
+                                                    kembalikan TOKEN_DAN
+                                                lainnya
+                                                    jika ident == "atau"
+                                                        kembalikan TOKEN_ATAU
+                                                    lainnya
+                                                        jika ident == "ambil"
+                                                            kembalikan TOKEN_AMBIL
+                                                        lainnya
+                                                            jika ident == "dari"
+                                                                kembalikan TOKEN_DARI
+                                                            lainnya
+                                                                jika ident == "berhenti"
+                                                                    kembalikan TOKEN_BERHENTI
+                                                                lainnya
+                                                                    jika ident == "lanjut"
+                                                                        kembalikan TOKEN_LANJUT
+                                                                    lainnya
+                                                                        jika ident == "struktur"
+                                                                            kembalikan TOKEN_STRUKTUR
+                                                                        lainnya
+                                                                            jika ident == "interface"
+                                                                                kembalikan TOKEN_INTERFACE
+                                                                            lainnya
+                                                                                jika ident == "var"
+                                                                                    kembalikan TOKEN_VAR
+                                                                                lainnya
+                                                                                    jika ident == "tetapan"
+                                                                                        kembalikan TOKEN_TETAPAN
+                                                                                    lainnya
+                                                                                        jika ident == "map"
+                                                                                            kembalikan TOKEN_MAP
+                                                                                        lainnya
+                                                                                            jika ident == "pilih"
+                                                                                                kembalikan TOKEN_PILIH
+                                                                                            lainnya
+                                                                                                jika ident == "kasus"
+                                                                                                    kembalikan TOKEN_KASUS
+                                                                                                lainnya
+                                                                                                    kembalikan TOKEN_IDENT
+                                                                                                akhir
+                                                                                            akhir
+                                                                                        akhir
+                                                                                    akhir
+                                                                                akhir
+                                                                            akhir
+                                                                        akhir
+                                                                    akhir
+                                                                akhir
+                                                            akhir
+                                                        akhir
+                                                    akhir
+                                                akhir
+                                            akhir
+                                        akhir
+                                    akhir
+                                akhir
+                            akhir
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+akhir
+
+# Helper functions for lexer
+fungsi char_at(s string, pos int) int
+    kembalikan native_char_at(s, pos)
+akhir
+
+fungsi char_to_string(ch int) string
+    kembalikan native_char_to_string(ch)
+akhir
+
+fungsi substring(s string, start int, end int) string
+    kembalikan native_substring(s, start, end)
+akhir
+
+fungsi panjang(s string) int
+    kembalikan native_strlen(s)
+akhir

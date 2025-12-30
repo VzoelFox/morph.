@@ -1,0 +1,2 @@
+fungsi Now() int native
+fungsi Sleep(ms int) void native

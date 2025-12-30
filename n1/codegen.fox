@@ -1,0 +1,791 @@
+# N1 Codegen - AST → C Transpiler
+# Port dari N0 pkg/compiler/compiler.go
+# Self-hosting codegen untuk Morph language
+
+# Import dependencies
+ambil "ast"
+ambil "token"
+# Type mapping uses N1 type system
+ambil "types"
+# ambil "checker"    # TODO: Re-enable when implementing type checking
+ambil "stdlib_codegen"
+
+# ============================================================================
+# Codegen Structure (N0 Compiler equivalent)
+# ============================================================================
+# N0 has 6 string builders for multi-pass compilation:
+# 1. typeDefs   - struct type definitions
+# 2. globalsDef - global variable declarations
+# 3. prototypes - function prototypes
+# 4. funcDefs   - function implementations
+# 5. entryBody  - main entry point body
+# 6. output     - final assembled output
+
+struktur Codegen
+    # Output buffers (Fox doesn't have StringBuilder, use string concatenation)
+    output string
+    type_defs string
+    global_defs string
+    prototypes string
+    func_defs string
+    entry_body string
+    pass_log string
+
+    # State tracking
+    temp_index int
+    has_main bool
+    indent_level int
+
+    # Module tracking
+    current_prefix string
+
+    # TODO: Need symbol table integration when checker is mature
+    # checker checker.Checker
+akhir
+
+# ============================================================================
+# Codegen Constructor
+# ============================================================================
+fungsi new_codegen() Codegen
+    kembalikan Codegen{
+        output: "",
+        type_defs: "",
+        global_defs: "",
+        prototypes: "",
+        func_defs: "",
+        entry_body: "",
+        pass_log: "",
+        temp_index: 0,
+        has_main: salah,
+        indent_level: 0,
+        current_prefix: "mph_"
+    }
+akhir
+
+# ============================================================================
+# Multi-Pass Compilation (N0 Architecture)
+# ============================================================================
+# N0 Compile() flow:
+# Pass 1: collectAllGlobals(node)
+# Pass 2: analyzeAllCaptures(node)
+# Pass 3: compileStructTypes(node)
+# Pass 4: compileStructRTTI(node)
+# Pass 5: compileModule(prog, prefix) for each module + main
+# Pass 6: Assemble output: headers → types → globals → protos → funcs → entry
+
+fungsi codegen_compile(cg Codegen, prog ast.Program) string
+    # Reset state
+    cg.output = ""
+    cg.type_defs = ""
+    cg.global_defs = ""
+    cg.prototypes = ""
+    cg.func_defs = ""
+    cg.entry_body = ""
+    cg.pass_log = ""
+    cg.temp_index = 0
+    cg.has_main = salah
+
+    # Generate C header includes
+    cg.output = cg.output + "#include \"morph.h\"\n\n"
+
+    # Native function declarations
+    cg.output = cg.output + "// Native bindings\n"
+    cg.output = cg.output + "void mph_native_print(MorphContext* ctx, MorphString* s);\n"
+    cg.output = cg.output + "void mph_native_print_int(MorphContext* ctx, mph_int n);\n"
+    cg.output = cg.output + "void mph_native_print_error(MorphContext* ctx, MorphError* err);\n"
+    cg.output = cg.output + "mph_int mph_string_index(MorphContext* ctx, MorphString* s, MorphString* sub);\n"
+    cg.output = cg.output + "MorphString* mph_string_trim(MorphContext* ctx, MorphString* s, MorphString* cut);\n"
+    cg.output = cg.output + "MorphArray* mph_string_split(MorphContext* ctx, MorphString* s, MorphString* sep);\n"
+    cg.output = cg.output + "MorphString* mph_string_substring(MorphContext* ctx, MorphString* s, mph_int start, mph_int end);\n"
+    cg.output = cg.output + "MorphError* mph_error_new(MorphContext* ctx, MorphString* msg);\n\n"
+
+    # Multi-pass compilation
+    # Pass 1: Collect globals (scan all var statements at top level)
+    # Pass 2: Analyze captures (for closures - Fox N1 might not support yet)
+    # Pass 3: Compile struct types (generate C struct definitions)
+    # Pass 4: Generate RTTI (runtime type info for structs)
+    # Pass 5: Compile main program
+    codegen_pass_collect_globals(cg, prog)
+    codegen_pass_analyze_captures(cg, prog)
+    codegen_pass_compile_struct_types(cg, prog)
+    codegen_pass_compile_struct_rtti(cg, prog)
+    codegen_pass_compile_module(cg, prog, "mph_")
+
+    cg.output = cg.output + "// Pass Log\n"
+    cg.output = cg.output + cg.pass_log
+    cg.output = cg.output + "\n"
+
+    # Pass 6: Assemble final output
+    cg.output = cg.output + "// Type Definitions\n"
+    cg.output = cg.output + cg.type_defs
+    cg.output = cg.output + "\n"
+
+    cg.output = cg.output + "// Global Variables\n"
+    cg.output = cg.output + cg.global_defs
+    cg.output = cg.output + "\n"
+
+    cg.output = cg.output + "// Function Prototypes\n"
+    cg.output = cg.output + cg.prototypes
+    cg.output = cg.output + "\n"
+
+    cg.output = cg.output + "// Function Definitions\n"
+    cg.output = cg.output + cg.func_defs
+    cg.output = cg.output + "\n"
+
+    cg.output = cg.output + "// Entry Point\n"
+    cg.output = cg.output + "void morph_entry_point(MorphContext* ctx) {\n"
+    cg.output = cg.output + cg.entry_body
+
+    jika cg.has_main
+        cg.output = cg.output + "\tmph_main(ctx, NULL);\n"
+    akhir
+
+    cg.output = cg.output + "}\n"
+
+    kembalikan cg.output
+akhir
+
+# ============================================================================
+# Multi-Pass Helpers
+# ============================================================================
+fungsi codegen_record_pass(cg Codegen, name string) void
+    cg.pass_log = cg.pass_log + "// " + name + "\n"
+akhir
+
+fungsi codegen_pass_collect_globals(cg Codegen, prog ast.Program) void
+    codegen_record_pass(cg, "pass1_collect_globals")
+    jika prog.has_var_statement
+        cg.global_defs = cg.global_defs + codegen_compile_global_var_declaration(prog.var_statement)
+        cg.entry_body = cg.entry_body + codegen_compile_global_var_initialization(prog.var_statement)
+    akhir
+akhir
+
+fungsi codegen_pass_analyze_captures(cg Codegen, prog ast.Program) void
+    codegen_record_pass(cg, "pass2_analyze_captures")
+    # TODO: Analyze closures for captured variables
+akhir
+
+fungsi codegen_pass_compile_struct_types(cg Codegen, prog ast.Program) void
+    codegen_record_pass(cg, "pass3_compile_struct_types")
+    # TODO: Generate struct type definitions
+akhir
+
+fungsi codegen_pass_compile_struct_rtti(cg Codegen, prog ast.Program) void
+    codegen_record_pass(cg, "pass4_compile_struct_rtti")
+    # TODO: Emit runtime type info for structs
+akhir
+
+fungsi codegen_pass_compile_module(cg Codegen, prog ast.Program, prefix string) void
+    codegen_record_pass(cg, "pass5_compile_module")
+    codegen_compile_program(cg, prog, prefix)
+akhir
+
+# ============================================================================
+# Program Compilation (Module-level)
+# ============================================================================
+fungsi codegen_compile_program(cg Codegen, prog ast.Program, prefix string) void
+    cg.current_prefix = prefix
+
+    # Iterate through statements in the program (var-only for now)
+    # Var statements are handled during pass1 (globals collection)
+akhir
+
+# ============================================================================
+# Statement Compilation (TODO - Needs Specific Types)
+# ============================================================================
+# N0 compileStatement() switch:
+# - VarStatement → compileVar()
+# - ReturnStatement → compileReturn()
+# - AssignmentStatement → compileAssignment()
+# - BlockStatement → compileBlock()
+# - ExpressionStatement → compileExpression()
+# - SwitchStatement → compileSwitchStatement()
+#
+# Note: Fox doesn't have interfaces, so we can't use generic Statement type
+# Will implement specific functions for each statement type when needed
+
+# ============================================================================
+# Expression Compilation (TODO - Needs Specific Types)
+# ============================================================================
+# N0 compileExpression() switch (20+ expression types):
+# - Identifier → handle local/global/imported
+# - IntegerLiteral → "42"
+# - StringLiteral → "mph_string_new(ctx, \"hello\")"
+# - BooleanLiteral → "1" or "0"
+# - CallExpression → compileCall()
+# - InfixExpression → compileInfix()
+# - PrefixExpression → "(operator expr)"
+# - MemberExpression → "obj->member"
+# - etc.
+#
+# Note: Will implement specific functions for IntegerLiteral, StringLiteral, etc.
+# when AST structures are fully integrated with codegen
+
+# ============================================================================
+# Type Mapping: Fox Type → C Type
+# ============================================================================
+# N0 mapCheckerTypeToC():
+# - int → mph_int
+# - float → mph_float
+# - string → MorphString*
+# - bool → mph_int
+# - void → void
+# - struct → struct <StructName>*
+# - array → MorphArray*
+# - map → MorphHash*
+
+# 💡 HINT: For map support, use runtime.c mph_map_* functions (VERIFIED WORKING ✅)
+#          runtime.c has: mph_map_new, mph_map_set, mph_map_get, mph_map_delete, mph_map_len
+#          N0 doesn't support map[K]V syntax - use Fox wrapper with int pointers
+#          See: VERIFICATION_SUMMARY.md for production verification results
+fungsi codegen_map_type_to_c(t types.Type) string
+    jika t.kind == types.KIND_INT
+        kembalikan "mph_int"
+    akhir
+
+    jika t.kind == types.KIND_FLOAT
+        kembalikan "mph_float"
+    akhir
+
+    jika t.kind == types.KIND_STRING
+        kembalikan "MorphString*"
+    akhir
+
+    jika t.kind == types.KIND_BOOL
+        kembalikan "mph_bool"
+    akhir
+
+    jika t.kind == types.KIND_VOID
+        kembalikan "void"
+    akhir
+
+    jika t.kind == types.KIND_FUNCTION
+        kembalikan "MorphClosure*"
+    akhir
+
+    jika t.kind == types.KIND_STRUCT
+        jika t.name != ""
+            kembalikan "mph_" + t.name + "*"
+        akhir
+        kembalikan "void*"
+    akhir
+
+    jika t.kind == types.KIND_INTERFACE
+        kembalikan "MorphInterface"
+    akhir
+
+    jika t.kind == types.KIND_ARRAY
+        kembalikan "MorphArray*"
+    akhir
+
+    jika t.kind == types.KIND_MAP
+        kembalikan "MorphMap*"
+    akhir
+
+    jika t.kind == types.KIND_POINTER
+        kembalikan "void*"
+    akhir
+
+    jika t.kind == types.KIND_MULTI
+        kembalikan "void*"
+    akhir
+
+    jika t.kind == types.KIND_ERROR
+        kembalikan "MorphError*"
+    akhir
+
+    jika t.kind == types.KIND_USER_ERROR
+        kembalikan "MorphError*"
+    akhir
+
+    jika t.kind == types.KIND_NULL
+        kembalikan "void*"
+    akhir
+
+    jika t.kind == types.KIND_UNKNOWN
+        kembalikan "void*"
+    akhir
+
+    jika t.kind == types.KIND_CHANNEL
+        kembalikan "MorphChannel*"
+    akhir
+
+    jika t.kind == types.KIND_MODULE
+        kembalikan "void*"
+    akhir
+
+    kembalikan "void*"
+akhir
+
+# ============================================================================
+# Helper: Generate Temporary Variable
+# ============================================================================
+# N0 nextTemp(): generates unique temp names like _tmp_1, _tmp_2, etc.
+fungsi codegen_next_temp(cg Codegen, prefix string) string
+    cg.temp_index = cg.temp_index + 1
+    kembalikan prefix + stdlib_codegen.IntToString(cg.temp_index)
+akhir
+
+# ============================================================================
+# Helper: String Concatenation
+# ============================================================================
+# Fox string concatenation helper (since we're accumulating C code)
+fungsi codegen_append(buf string, text string) string
+    kembalikan buf + text
+akhir
+
+fungsi codegen_append_line(buf string, text string) string
+    kembalikan buf + text + "\n"
+akhir
+
+fungsi codegen_append_indent(buf string, text string, level int) string
+    var indent = ""
+    var i = 0
+    selama i < level
+        indent = indent + "\t"
+        i = i + 1
+    akhir
+    kembalikan buf + indent + text + "\n"
+akhir
+
+# ============================================================================
+# Literal Compilation (Phase 1)
+# ============================================================================
+# Port dari N0 compiler.go compileExpression() switch cases
+
+# IntegerLiteral → C code
+# N0: case *parser.IntegerLiteral: return fmt.Sprintf("%d", e.Value), nil
+fungsi codegen_compile_integer_literal(lit ast.IntegerLiteral) string
+    # Convert int value to string using stdlib helper
+    kembalikan stdlib_codegen.IntToString(lit.value)
+akhir
+
+# FloatLiteral → C code
+# N0: case *parser.FloatLiteral: return e.Value, nil
+fungsi codegen_compile_float_literal(lit ast.FloatLiteral) string
+    # Float literal stored as string to preserve formatting
+    kembalikan lit.value_str
+akhir
+
+# CharLiteral → C code
+# N0: case *parser.CharLiteral: return fmt.Sprintf("%d", e.Value), nil
+fungsi codegen_compile_char_literal(lit ast.CharLiteral) string
+    # Char literal represented as integer ASCII code
+    kembalikan stdlib_codegen.IntToString(lit.value)
+akhir
+
+# StringLiteral → C code
+# N0: case *parser.StringLiteral:
+#       escaped := strings.ReplaceAll(e.Value, "\\", "\\\\")
+#       escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+#       escaped = strings.ReplaceAll(escaped, "\n", "\\n")
+#       escaped = strings.ReplaceAll(escaped, "\r", "\\r")
+#       escaped = strings.ReplaceAll(escaped, "\t", "\\t")
+#       return fmt.Sprintf("mph_string_new(ctx, \"%s\")", escaped), nil
+fungsi codegen_compile_string_literal(lit ast.StringLiteral) string
+    # Escape string value using stdlib helper
+    var escaped = stdlib_codegen.StringEscape(lit.value)
+    # Wrap with mph_string_new() runtime call
+    kembalikan "mph_string_new(ctx, \"" + escaped + "\")"
+akhir
+
+# BooleanLiteral → C code
+# N0: case *parser.BooleanLiteral:
+#       if e.Value { return "1", nil }
+#       return "0", nil
+fungsi codegen_compile_boolean_literal(lit ast.BooleanLiteral) string
+    jika lit.value
+        kembalikan "1"
+    akhir
+    kembalikan "0"
+akhir
+
+# NullLiteral → C code
+# N0: case *parser.NullLiteral: return "NULL", nil
+fungsi codegen_compile_null_literal(lit ast.NullLiteral) string
+    kembalikan "NULL"
+akhir
+
+# ============================================================================
+# Expression Compilation (Phase 2 - Simplified)
+# ============================================================================
+
+# Identifier → C code
+# N0: Check captured, local, imported, global (complex scope tracking)
+# N1 Simplified: Just return name (no scope tracking yet)
+# TODO Phase 3: Add scope tracking untuk local/global distinction
+fungsi codegen_compile_identifier(ident ast.Identifier) string
+    # Simplified: just return identifier name
+    # In future: check if local vs global, add prefix if needed
+    kembalikan ident.value
+akhir
+
+# InfixExpression → C code
+# N0: Handle string concat, string equality, logical operators, arithmetic
+# N1 Simplified: Basic arithmetic operators only
+# TODO Phase 3: Add string operations, type-aware compilation
+fungsi codegen_compile_infix(left_code string, operator string, right_code string) string
+    # Map Fox logical operators to C
+    var c_operator = operator
+
+    jika operator == "dan"
+        c_operator = "&&"
+    lainnya
+        jika operator == "atau"
+            c_operator = "||"
+        akhir
+    akhir
+
+    # Basic infix: (left op right)
+    kembalikan "(" + left_code + " " + c_operator + " " + right_code + ")"
+akhir
+
+# PrefixExpression → C code
+# N0: Map logical negation and unary operators
+# N1 Simplified: handle "tidak" (logical not) and unary operators as-is
+fungsi codegen_compile_prefix(operator string, right_code string) string
+    var c_operator = operator
+
+    jika operator == "tidak"
+        c_operator = "!"
+    akhir
+
+    kembalikan "(" + c_operator + right_code + ")"
+akhir
+
+# ============================================================================
+# Builtin Call Compilation (Phase 2 - Simplified)
+# ============================================================================
+
+# Map builtin function name to C runtime symbol (subset of N0 builtins)
+fungsi codegen_resolve_builtin_name(name string) string
+    jika name == "native_print"
+        kembalikan "mph_native_print"
+    akhir
+
+    jika name == "native_print_error"
+        kembalikan "mph_native_print_error"
+    akhir
+
+    jika name == "native_print_int"
+        kembalikan "mph_native_print_int"
+    akhir
+
+    jika name == "error"
+        kembalikan "mph_error_new"
+    akhir
+
+    jika name == "index"
+        kembalikan "mph_string_index"
+    akhir
+
+    jika name == "trim"
+        kembalikan "mph_string_trim"
+    akhir
+
+    jika name == "split"
+        kembalikan "mph_string_split"
+    akhir
+
+    jika name == "substring"
+        kembalikan "mph_string_substring"
+    akhir
+
+    kembalikan ""
+akhir
+
+# Builtin Call → C code
+# N0: compileBuiltin(call, cName) prepends ctx to args.
+# N1 Simplified: pass pre-joined args code string.
+fungsi codegen_compile_builtin_call(name string, args_code string) string
+    var c_name = codegen_resolve_builtin_name(name)
+    jika c_name == ""
+        kembalikan ""
+    akhir
+
+    jika args_code == ""
+        kembalikan c_name + "(ctx)"
+    akhir
+
+    kembalikan c_name + "(ctx, " + args_code + ")"
+akhir
+
+# ============================================================================
+# Statement Compilation (Phase 2 - Simplified)
+# ============================================================================
+
+fungsi codegen_var_type_from_annotation(type_str string) string
+    jika type_str == "int"
+        kembalikan "mph_int"
+    akhir
+    jika type_str == "float"
+        kembalikan "mph_float"
+    akhir
+    jika type_str == "bool"
+        kembalikan "mph_bool"
+    akhir
+    jika type_str == "string"
+        kembalikan "MorphString*"
+    akhir
+    kembalikan "mph_int"
+akhir
+
+fungsi codegen_default_value_for_annotation(type_str string) string
+    jika type_str == "float"
+        kembalikan "0.0"
+    akhir
+    jika type_str == "string"
+        kembalikan "NULL"
+    akhir
+    kembalikan "0"
+akhir
+
+fungsi codegen_var_type_from_token(token_type int) string
+    jika token_type == token.TOKEN_STRING
+        kembalikan "MorphString*"
+    akhir
+    jika token_type == token.TOKEN_FLOAT
+        kembalikan "mph_float"
+    akhir
+    jika token_type == token.TOKEN_INT
+        kembalikan "mph_int"
+    akhir
+    jika token_type == token.TOKEN_BENAR
+        kembalikan "mph_bool"
+    akhir
+    jika token_type == token.TOKEN_SALAH
+        kembalikan "mph_bool"
+    akhir
+    jika token_type == token.TOKEN_CHAR
+        kembalikan "mph_int"
+    akhir
+    kembalikan "mph_int"
+akhir
+
+fungsi codegen_value_code_from_token(token_type int, literal string) string
+    jika token_type == token.TOKEN_STRING
+        var lit = ast.MakeStringLiteral(literal, 0, 0)
+        kembalikan codegen_compile_string_literal(lit)
+    akhir
+    jika token_type == token.TOKEN_FLOAT
+        kembalikan literal
+    akhir
+    jika token_type == token.TOKEN_INT
+        kembalikan literal
+    akhir
+    jika token_type == token.TOKEN_BENAR
+        var lit_true = ast.MakeBooleanLiteral(benar, "benar", 0, 0)
+        kembalikan codegen_compile_boolean_literal(lit_true)
+    akhir
+    jika token_type == token.TOKEN_SALAH
+        var lit_false = ast.MakeBooleanLiteral(salah, "salah", 0, 0)
+        kembalikan codegen_compile_boolean_literal(lit_false)
+    akhir
+    kembalikan literal
+akhir
+
+fungsi codegen_compile_var_statement_typed(name string, value_code string, c_type string) string
+    kembalikan "\t" + c_type + " " + name + " = " + value_code + ";\n"
+akhir
+
+fungsi codegen_var_type_from_statement(stmt ast.VarStatement) string
+    jika stmt.value_type != "-"
+        kembalikan codegen_var_type_from_annotation(stmt.value_type)
+    akhir
+    jika stmt.has_value
+        kembalikan codegen_var_type_from_token(stmt.value_token_type)
+    akhir
+    kembalikan codegen_var_type_from_annotation(stmt.value_type)
+akhir
+
+fungsi codegen_var_value_code_from_statement(stmt ast.VarStatement) string
+    jika stmt.has_value
+        kembalikan codegen_value_code_from_token(stmt.value_token_type, stmt.value_literal)
+    akhir
+    kembalikan codegen_default_value_for_annotation(stmt.value_type)
+akhir
+
+fungsi codegen_compile_global_var_declaration(stmt ast.VarStatement) string
+    var c_type = codegen_var_type_from_statement(stmt)
+    kembalikan c_type + " " + stmt.name + ";\n"
+akhir
+
+fungsi codegen_compile_global_var_initialization(stmt ast.VarStatement) string
+    var value_code = codegen_var_value_code_from_statement(stmt)
+    kembalikan "\t" + stmt.name + " = " + value_code + ";\n"
+akhir
+
+fungsi codegen_compile_var_statement_from_stmt(stmt ast.VarStatement) string
+    var c_type = codegen_var_type_from_statement(stmt)
+    var value_code = codegen_var_value_code_from_statement(stmt)
+    kembalikan codegen_compile_var_statement_typed(stmt.name, value_code, c_type)
+akhir
+
+# VarStatement → C code
+# N0: Complex type inference, GC root registration, tuple unpacking
+# N1 Simplified: var name = value → "mph_int name = value;"
+# TODO Phase 3: Type inference, GC integration
+fungsi codegen_compile_var_statement(name string, value_code string) string
+    # Simplified: default to mph_int type
+    # In future: infer type from value or use explicit type annotation
+    kembalikan "\tmph_int " + name + " = " + value_code + ";\n"
+akhir
+
+# ExpressionStatement → C code
+# N0: compile expression and append semicolon
+# N1 Simplified: append semicolon to already-compiled expression
+fungsi codegen_compile_expression_statement(value_code string) string
+    kembalikan "\t" + value_code + ";\n"
+akhir
+
+# ReturnStatement → C code
+# N0: handle void vs value returns
+# N1 Simplified: "return;" or "return <value>;"
+fungsi codegen_compile_return_statement(has_value bool, value_code string) string
+    jika has_value
+        kembalikan "\treturn " + value_code + ";\n"
+    akhir
+    kembalikan "\treturn;\n"
+akhir
+
+# ============================================================================
+# Uppercase Export Wrappers (for module imports)
+# ============================================================================
+fungsi NewCodegen() Codegen
+    kembalikan new_codegen()
+akhir
+
+fungsi Compile(cg Codegen, prog ast.Program) string
+    kembalikan codegen_compile(cg, prog)
+akhir
+
+fungsi MapTypeToC(t types.Type) string
+    kembalikan codegen_map_type_to_c(t)
+akhir
+
+# Phase 1: Literal compilation exports
+fungsi CompileIntegerLiteral(lit ast.IntegerLiteral) string
+    kembalikan codegen_compile_integer_literal(lit)
+akhir
+
+fungsi CompileFloatLiteral(lit ast.FloatLiteral) string
+    kembalikan codegen_compile_float_literal(lit)
+akhir
+
+fungsi CompileCharLiteral(lit ast.CharLiteral) string
+    kembalikan codegen_compile_char_literal(lit)
+akhir
+
+fungsi CompileStringLiteral(lit ast.StringLiteral) string
+    kembalikan codegen_compile_string_literal(lit)
+akhir
+
+fungsi CompileBooleanLiteral(lit ast.BooleanLiteral) string
+    kembalikan codegen_compile_boolean_literal(lit)
+akhir
+
+fungsi CompileNullLiteral(lit ast.NullLiteral) string
+    kembalikan codegen_compile_null_literal(lit)
+akhir
+
+# Phase 2: Expression & statement compilation exports
+fungsi CompileIdentifier(ident ast.Identifier) string
+    kembalikan codegen_compile_identifier(ident)
+akhir
+
+fungsi CompileInfix(left_code string, operator string, right_code string) string
+    kembalikan codegen_compile_infix(left_code, operator, right_code)
+akhir
+
+fungsi CompilePrefix(operator string, right_code string) string
+    kembalikan codegen_compile_prefix(operator, right_code)
+akhir
+
+fungsi ResolveBuiltinName(name string) string
+    kembalikan codegen_resolve_builtin_name(name)
+akhir
+
+fungsi CompileBuiltinCall(name string, args_code string) string
+    kembalikan codegen_compile_builtin_call(name, args_code)
+akhir
+
+fungsi CompileVarStatement(name string, value_code string) string
+    kembalikan codegen_compile_var_statement(name, value_code)
+akhir
+
+fungsi CompileExpressionStatement(value_code string) string
+    kembalikan codegen_compile_expression_statement(value_code)
+akhir
+
+fungsi CompileReturnStatement(has_value bool, value_code string) string
+    kembalikan codegen_compile_return_statement(has_value, value_code)
+akhir
+
+# ============================================================================
+# DESIGN NOTES
+# ============================================================================
+# This is a skeletal architecture based on N0's proven design.
+#
+# IMPLEMENTATION PHASES:
+#
+# Phase 1: Basic Expressions (CURRENT)
+#   - Integer literals
+#   - String literals
+#   - Boolean literals
+#   - Simple identifiers
+#   - Binary operations (+, -, *, /)
+#   TARGET: Compile "var x = 1 + 2"
+#
+# Phase 2: Statements
+#   - Variable declarations
+#   - Assignments
+#   - Expression statements
+#   - Return statements
+#   TARGET: Compile simple functions
+#
+# Phase 3: Control Flow
+#   - If/else expressions
+#   - While loops
+#   - Switch statements
+#   TARGET: Compile control structures
+#
+# Phase 4: Functions
+#   - Function declarations
+#   - Function calls
+#   - Parameter passing
+#   TARGET: Compile multi-function programs
+#
+# Phase 5: Structs & Types
+#   - Struct definitions
+#   - Struct constructors
+#   - Member access
+#   TARGET: Compile type-safe programs
+#
+# Phase 6: Modules
+#   - Module imports
+#   - Name mangling
+#   - Cross-module calls
+#   TARGET: Self-hosting (N1 compiles N1)
+#
+# CRITICAL DEPENDENCIES:
+# 1. String utilities (int_to_string, string_escape, string_concat)
+# 2. AST array access (prog.statements[i])
+# 3. Type inference/checking integration
+# 4. Module system (ambil/import resolution)
+#
+# BOOTSTRAP STRATEGY:
+# - N0 compiles codegen.fox → codegen.c
+# - Link codegen.c with N1 modules (token, lexer, parser, checker)
+# - Test: N1 compile simple.fox → simple.c
+# - Validate: gcc simple.c → ./simple works
+# - Iterate: Add more expression/statement types
+# - Goal: N1 self-compile (N1 compiles codegen.fox)
+#
+# OUTPUT IDENTITY VERIFICATION:
+# When self-hosting is achieved:
+#   N0_output = N0 compile N1 → n1_by_n0.c
+#   N1_output = N1 compile N1 → n1_by_n1.c
+#   VERIFY: diff n1_by_n0.c n1_by_n1.c == 0 (bitwise identical)
+#
+# This verifies true self-hosting per user's definition.
+# ============================================================================
